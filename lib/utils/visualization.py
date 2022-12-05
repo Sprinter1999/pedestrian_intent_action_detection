@@ -17,6 +17,7 @@ def print_info(epoch, model, loss_dict, optimizer=None, logger=None, iteration_b
         info = 'Iters:{},'.format(epoch)
     else:
         info = 'Epoch:{},'.format(epoch)
+        
     if hasattr(optimizer, 'param_groups'):
         info += '\t lr:{:6},'.format(optimizer.param_groups[0]['lr'])
         loss_dict['lr'] = optimizer.param_groups[0]['lr']

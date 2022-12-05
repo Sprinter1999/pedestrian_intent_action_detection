@@ -5,6 +5,8 @@
 # CUDA 10.1 requires driver version >= 418.39
 FROM pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
 ENV DEBIAN_FRONTEND=noninteractive
+# RUN rm /etc/apt/sources.list.d/cuda.list
+
 
 RUN apt-get update && \
     apt-get -y install apt-utils libopencv-dev cmake git sudo vim software-properties-common screen wget
@@ -17,7 +19,7 @@ RUN apt-get update && \
 #RUN apt-get update
 
 #RUN apt-get -y install nvidia-driver-440
-RUN pip install matplotlib tqdm yacs Pillow tensorboardx six==1.13.0 wandb scikit-learn opencv-python coloredlogs pandas dill ncls orjson termcolor
+RUN pip install matplotlib tqdm yacs Pillow tensorboardx six==1.13.0 wandb scikit-learn opencv-python coloredlogs pandas dill ncls orjson termcolor -i https://pypi.tuna.tsinghua.edu.cn/simple
 RUN echo 'export PYTHONPATH=/workspace/pedestrian_intent_action_detection:$PYTHONPATH' >> ~/.bashrc
 # RUN cd pedestrian_intent_action_detection
 # RUN python setup.py build develop

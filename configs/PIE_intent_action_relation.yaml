@@ -8,7 +8,7 @@ MODEL:
   TYPE: 'rnn'
   TASK: 'action_intent_single'
   WITH_EGO: False
-  WITH_TRAFFIC: True
+  WITH_TRAFFIC: False
   TRAFFIC_TYPES: ['x_ego', 'x_neighbor', 'x_crosswalk', 'x_light', 'x_sign', 'x_station']
   TRAFFIC_ATTENTION: 'softmax' #softmax, sigmoid or none
   ACTION_NET: 'gru_trn'

@@ -134,11 +134,13 @@ else:
     loss_intent_meter = AverageValueMeter()
 
     for epoch in range(cfg.SOLVER.MAX_EPOCH):
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>called")
         do_train(cfg, epoch, model, optimizer, train_dataloader, cfg.DEVICE, loss_act_det_meter, loss_act_pred_meter, loss_intent_meter, logger=logger, lr_scheduler=lr_scheduler)
         loss_val = do_val(cfg, epoch, model, val_dataloader, cfg.DEVICE, logger=logger)
+        print(f"*************loss_val {loss_val}**************")
 
-        if epoch % cfg.TEST.INTERVAL == 0:
-            result_dict = inference(cfg, epoch, model, test_dataloader, cfg.DEVICE, logger=logger)
-            torch.save(model.state_dict(), os.path.join(save_checkpoint_dir, 'Epoch_{}.pth'.format(str(epoch).zfill(3))))
-        if cfg.SOLVER.SCHEDULER == 'plateau':
-            lr_scheduler.step(loss_val)
+        # if epoch % cfg.TEST.INTERVAL == 0:
+        #     result_dict = inference(cfg, epoch, model, test_dataloader, cfg.DEVICE, logger=logger)
+        #     torch.save(model.state_dict(), os.path.join(save_checkpoint_dir, 'Epoch_{}.pth'.format(str(epoch).zfill(3))))
+        # if cfg.SOLVER.SCHEDULER == 'plateau':
+        #     lr_scheduler.step(loss_val)

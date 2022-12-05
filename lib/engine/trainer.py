@@ -26,43 +26,44 @@ def do_train(cfg,
     viz = Visualizer(cfg, mode='image')
 
     loss_func = {}
-    loss_func['act_det'] = binary_cross_entropy_loss if cfg.MODEL.ACTION_LOSS == 'bce' else cross_entropy_loss
+    # loss_func['act_det'] = binary_cross_entropy_loss if cfg.MODEL.ACTION_LOSS == 'bce' else cross_entropy_loss
     loss_func['int_det'] = binary_cross_entropy_loss if cfg.MODEL.INTENT_LOSS == 'bce' else cross_entropy_loss
-    loss_func['act_pred'] = trn_loss if 'trn' in cfg.MODEL.ACTION_NET else None
+    # loss_func['act_pred'] = trn_loss if 'trn' in cfg.MODEL.ACTION_NET else None
     with torch.set_grad_enabled(True):
         end = time.time()
         for iters, batch in enumerate(tqdm(dataloader), start=1):
             data_time = time.time() - end
 
-            x = batch['img_patches'].to(device)
+            # x = batch['img_patches'].to(device)
             bboxes = batch['obs_bboxes'].to(device)
-            local_bboxes = batch['local_bboxes'].to(device)
-            masks = None#batch['masks'].to(device)
-            img_path = batch['cur_image_file']
+            # local_bboxes = batch['local_bboxes'].to(device)
+            masks = None #batch['masks'].to(device)
+            # img_path = batch['cur_image_file']
             target_intent = batch['obs_intent'].to(device)
-            target_action = batch['obs_action'].to(device)
-            target_future_action = batch['pred_action'].to(device)
+            # target_action = batch['obs_action'].to(device)
+            # target_future_action = batch['pred_action'].to(device)
                         
-            act_det_scores, act_pred_scores, int_det_scores = model(x, bboxes, local_bboxes=local_bboxes, masks=masks)
+            int_det_scores,__ = model(bboxes, masks=masks)
             # get loss and update loss meters
             loss, loss_dict = 0.0, {}
-            if act_det_scores is not None:
-                loss_act_det = loss_func['act_det'](act_det_scores, target_action)
-                loss += loss_act_det
-                loss_act_det_meter.add(loss_act_det.item())
-                loss_dict['loss_act_det_train'] = loss_act_det_meter.mean
-            if act_pred_scores is not None:
-                loss_act_pred = loss_func['act_pred'](act_pred_scores, torch.cat((target_action, target_future_action), dim=1))
-                loss += loss_act_pred
-                loss_act_pred_meter.add(loss_act_pred.item())
-                loss_dict['loss_act_pred_train'] = loss_act_pred_meter.mean
+            # if act_det_scores is not None:
+            #     loss_act_det = loss_func['act_det'](act_det_scores, target_action)
+            #     loss += loss_act_det
+            #     loss_act_det_meter.add(loss_act_det.item())
+            #     loss_dict['loss_act_det_train'] = loss_act_det_meter.mean
+            # if act_pred_scores is not None:
+            #     loss_act_pred = loss_func['act_pred'](act_pred_scores, torch.cat((target_action, target_future_action), dim=1))
+            #     loss += loss_act_pred
+            #     loss_act_pred_meter.add(loss_act_pred.item())
+            #     loss_dict['loss_act_pred_train'] = loss_act_pred_meter.mean
             if int_det_scores is not None:
+                # print(f"trainer {int_det_scores.size()}")
                 loss_intent = loss_func['int_det'](int_det_scores, target_intent)
-                if act_det_scores is not None and hasattr(model, 'param_scheduler'):
-                    loss += model.param_scheduler.intent_weight * loss_intent
-                    loss_dict['intent_weight'] = model.param_scheduler.intent_weight
-                else:
-                    loss += loss_intent
+                # if act_det_scores is not None and hasattr(model, 'param_scheduler'):
+                #     loss += model.param_scheduler.intent_weight * loss_intent
+                #     loss_dict['intent_weight'] = model.param_scheduler.intent_weight
+                # else:
+                loss += loss_intent
                 loss_intent_meter.add(loss_intent.item())
                 loss_dict['loss_int_det_train'] = loss_intent_meter.mean
         
@@ -98,14 +99,7 @@ def do_train(cfg,
 
                 id_to_show = np.random.randint(bboxes.shape[0])
                 gt_behaviors, pred_behaviors = {}, {}
-                if 'action' in cfg.MODEL.TASK:
-                    target_action = target_action.detach().cpu().numpy()
-                    if act_det_scores.shape[-1] == 1:
-                        act_det_scores = act_det_scores.sigmoid().detach().cpu().numpy()
-                    else:
-                        act_det_scores = act_det_scores.softmax(dim=-1).detach().cpu().numpy()
-                    gt_behaviors['action'] = target_action[id_to_show, -1]
-                    pred_behaviors['action'] = act_det_scores[id_to_show, -1]
+
 
                 if 'intent' in cfg.MODEL.TASK:
                     target_intent = target_intent.detach().cpu().numpy()
@@ -116,27 +110,27 @@ def do_train(cfg,
                     gt_behaviors['intent'] = target_intent[id_to_show, -1]
                     pred_behaviors['intent'] = int_det_scores[id_to_show, -1]
                 # visualize input
-                input_images = []
-                for i in range(4):
-                    row = []
-                    for j in range(4):
-                        if i*4+j < x.shape[2]:
-                            row.append(x[id_to_show, :, i*4+j,...].detach().cpu())
-                        else:
-                            row.append(torch.zeros_like(x[id_to_show, :, 0, ...]).cpu())
-                    input_images.append(torch.cat(row, dim=2))
-                input_images = torch.cat(input_images, dim=1).permute(1, 2, 0).numpy() 
-                input_images = 255 * (input_images+1) / 2
-                logger.log_image(input_images, label='input_train')
+                # input_images = []
+                # for i in range(4):
+                #     row = []
+                #     for j in range(4):
+                #         if i*4+j < x.shape[2]:
+                #             row.append(x[id_to_show, :, i*4+j,...].detach().cpu())
+                #         else:
+                #             row.append(torch.zeros_like(x[id_to_show, :, 0, ...]).cpu())
+                #     input_images.append(torch.cat(row, dim=2))
+                # input_images = torch.cat(input_images, dim=1).permute(1, 2, 0).numpy() 
+                # input_images = 255 * (input_images+1) / 2
+                # logger.log_image(input_images, label='input_train')
 
                 # visualize result  
-                vis_results(viz, 
-                            img_path[id_to_show], 
-                            bboxes[id_to_show][-1], 
-                            gt_behaviors=gt_behaviors,
-                            pred_behaviors=pred_behaviors,
-                            name='intent_train',
-                            logger=logger)
+                # vis_results(viz, 
+                #             img_path[id_to_show], 
+                #             bboxes[id_to_show][-1], 
+                #             gt_behaviors=gt_behaviors,
+                #             pred_behaviors=pred_behaviors,
+                #             name='intent_train',
+                #             logger=logger)
                 
             end = time.time()
     
@@ -148,63 +142,61 @@ def do_val(cfg, epoch, model, dataloader, device, logger=None, iteration_based=F
 
     loss_act, loss_intent = [], []
     loss_func = {}
-    loss_func['act_det'] = binary_cross_entropy_loss if cfg.MODEL.ACTION_LOSS == 'bce' else cross_entropy_loss
+    # loss_func['act_det'] = binary_cross_entropy_loss if cfg.MODEL.ACTION_LOSS == 'bce' else cross_entropy_loss
     loss_func['int_det'] = binary_cross_entropy_loss if cfg.MODEL.INTENT_LOSS == 'bce' else cross_entropy_loss
-    loss_func['act_pred'] = trn_loss if 'trn' in cfg.MODEL.ACTION_NET else None
+    # loss_func['act_pred'] = trn_loss if 'trn' in cfg.MODEL.ACTION_NET else None
     with torch.set_grad_enabled(False):
         for iters, batch in enumerate(tqdm(dataloader), start=1):
     
-            x = batch['img_patches'].to(device)
+            # x = batch['img_patches'].to(device)
             bboxes = batch['obs_bboxes'].to(device)
-            local_bboxes = batch['local_bboxes'].to(device) if batch['local_bboxes'] is not None else None
+            # local_bboxes = batch['local_bboxes'].to(device) if batch['local_bboxes'] is not None else None
             masks = None #batch['masks'].to(device)
-            img_path = batch['cur_image_file']
+            # img_path = batch['cur_image_file']
             target_intent = batch['obs_intent'].to(device)
-            target_action = batch['obs_action'].to(device)
-            target_future_action = batch['pred_action'].to(device)
+            # target_action = batch['obs_action'].to(device)
+            # target_future_action = batch['pred_action'].to(device)
             
-            ego_motion = batch['obs_ego_motion'].to(device) if cfg.MODEL.WITH_EGO or cfg.MODEL.WITH_TRAFFIC else None
-            x_traffic = None
-            if cfg.MODEL.WITH_TRAFFIC:
-                if cfg.MODEL.PRETRAINED:
-                    x_traffic = batch['traffic_features'].to(device)
-                else:
-                    x_traffic = {}
-                    if 'x_neighbor' in cfg.MODEL.TRAFFIC_TYPES:
-                        x_traffic['x_neighbor'] = batch['neighbor_bboxes']
-                        x_traffic['cls_neighbor'] = batch['neighbor_classes']
-                    if 'x_light' in cfg.MODEL.TRAFFIC_TYPES:
-                        x_traffic['x_light'] = batch['traffic_light']
-                        x_traffic['cls_light'] = batch['traffic_light_classes']
-                    if 'x_sign' in cfg.MODEL.TRAFFIC_TYPES:
-                        x_traffic['x_sign'] = batch['traffic_sign']
-                        x_traffic['cls_sign'] = batch['traffic_sign_classes']
-                    if 'x_crosswalk' in cfg.MODEL.TRAFFIC_TYPES:
-                        x_traffic['x_crosswalk'] = batch['crosswalk']
-                        x_traffic['cls_crosswalk'] = batch['crosswalk_classes']
-                    if 'x_station' in cfg.MODEL.TRAFFIC_TYPES:
-                        x_traffic['x_station'] = batch['station']
-                        x_traffic['cls_station'] = batch['station_classes']
+            # ego_motion = batch['obs_ego_motion'].to(device) if cfg.MODEL.WITH_EGO or cfg.MODEL.WITH_TRAFFIC else None
+            # x_traffic = None
+            # if cfg.MODEL.WITH_TRAFFIC:
+            #     if cfg.MODEL.PRETRAINED:
+            #         x_traffic = batch['traffic_features'].to(device)
+            #     else:
+            #         x_traffic = {}
+            #         if 'x_neighbor' in cfg.MODEL.TRAFFIC_TYPES:
+            #             x_traffic['x_neighbor'] = batch['neighbor_bboxes']
+            #             x_traffic['cls_neighbor'] = batch['neighbor_classes']
+            #         if 'x_light' in cfg.MODEL.TRAFFIC_TYPES:
+            #             x_traffic['x_light'] = batch['traffic_light']
+            #             x_traffic['cls_light'] = batch['traffic_light_classes']
+            #         if 'x_sign' in cfg.MODEL.TRAFFIC_TYPES:
+            #             x_traffic['x_sign'] = batch['traffic_sign']
+            #             x_traffic['cls_sign'] = batch['traffic_sign_classes']
+            #         if 'x_crosswalk' in cfg.MODEL.TRAFFIC_TYPES:
+            #             x_traffic['x_crosswalk'] = batch['crosswalk']
+            #             x_traffic['cls_crosswalk'] = batch['crosswalk_classes']
+            #         if 'x_station' in cfg.MODEL.TRAFFIC_TYPES:
+            #             x_traffic['x_station'] = batch['station']
+            #             x_traffic['cls_station'] = batch['station_classes']
             
-            act_det_scores, act_pred_scores, int_det_scores = model(x, 
-                                                                                bboxes, 
-                                                                                x_ego=ego_motion, 
-                                                                                x_traffic=x_traffic,
-                                                                                local_bboxes=local_bboxes, 
-                                                                                masks=masks)
+            int_det_scores,__ = model(bboxes, # x_ego=ego_motion, 
+                                            # x_traffic=x_traffic,
+                                            # local_bboxes=local_bboxes, 
+                                            masks=masks)
             
-            if act_det_scores is not None:
-                if cfg.STYLE == 'PIE':
-                    loss_act_det_meter.add(loss_func['act_det'](act_det_scores, target_action).item())
-                elif cfg.STYLE == 'SF-GRU':
-                    loss_act_det_meter.add(loss_func['act_det'](act_det_scores[:, -1:], target_action[:, -1:]).item())
+            # if act_det_scores is not None:
+            #     if cfg.STYLE == 'PIE':
+            #         loss_act_det_meter.add(loss_func['act_det'](act_det_scores, target_action).item())
+            #     elif cfg.STYLE == 'SF-GRU':
+            #         loss_act_det_meter.add(loss_func['act_det'](act_det_scores[:, -1:], target_action[:, -1:]).item())
                 
-            if act_pred_scores is not None:
-                if cfg.STYLE == 'PIE':
-                    loss_act_pred_meter.add(loss_func['act_pred'](act_pred_scores, torch.cat((target_action, target_future_action), dim=1)).item())
-                elif cfg.STYLE == 'SF-GRU':
-                    loss_act_pred_meter.add(cross_entropy_loss(act_pred_scores[:, -1].reshape(-1, act_pred_scores.shape[-1]), 
-                                                               target_future_action.view(-1)).item())
+            # if act_pred_scores is not None:
+            #     if cfg.STYLE == 'PIE':
+            #         loss_act_pred_meter.add(loss_func['act_pred'](act_pred_scores, torch.cat((target_action, target_future_action), dim=1)).item())
+            #     elif cfg.STYLE == 'SF-GRU':
+            #         loss_act_pred_meter.add(cross_entropy_loss(act_pred_scores[:, -1].reshape(-1, act_pred_scores.shape[-1]), 
+            #                                                    target_future_action.view(-1)).item())
 
             if int_det_scores is not None:
                 if cfg.STYLE == 'PIE':
@@ -213,10 +205,7 @@ def do_val(cfg, epoch, model, dataloader, device, logger=None, iteration_based=F
                     loss_intent_meter.add(loss_func['int_det'](int_det_scores[:, -1:], target_intent[:, -1:]).item())                
 
     loss_dict = {}
-    if 'action' in cfg.MODEL.TASK:
-        loss_dict['loss_act_det_val'] = loss_act_det_meter.mean
-        if 'trn' in cfg.MODEL.ACTION_NET:
-            loss_dict['loss_act_pred_val'] = loss_act_pred_meter.mean
+
     if 'intent' in cfg.MODEL.TASK:
         loss_dict['loss_intent_val'] = loss_intent_meter.mean
     print_info(epoch, model, loss_dict, optimizer=None, logger=logger, iteration_based=iteration_based)

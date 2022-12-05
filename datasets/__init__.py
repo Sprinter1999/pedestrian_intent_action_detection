@@ -12,7 +12,7 @@ __DATASET_NAME__ = {
 }
 def make_dataloader(cfg, split='train', distributed=False, logger=None):
     is_train = split == 'train'
-    if split == 'test':
+    if split == 'testt':
         batch_size = cfg.TEST.BATCH_SIZE
     else:
         batch_size = cfg.SOLVER.BATCH_SIZE
@@ -21,6 +21,7 @@ def make_dataloader(cfg, split='train', distributed=False, logger=None):
             "shuffle":is_train,
             "num_workers": cfg.DATALOADER.NUM_WORKERS,
             "collate_fn": collate_dict,
+            "drop_last": True,
             }
     
     dataset = make_dataset(cfg, split)

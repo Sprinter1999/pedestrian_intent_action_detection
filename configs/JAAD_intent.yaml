@@ -1,7 +1,7 @@
 PROJECT: 'intent2021icra_intent_only'
 USE_WANDB: False
-CKPT_DIR: 'checkpoints/PIE'
-OUT_DIR: 'outputs/PIE'
+CKPT_DIR: 'checkpoints/JAAD'
+OUT_DIR: 'outputs/JAAD'
 VISUALIZE: False
 MODEL:
   TYPE: 'rnn'
@@ -10,9 +10,9 @@ MODEL:
   INPUT_LAYER: 'avg_pool'
   SEG_LEN: 30
   INPUT_LEN: 15 # past 0.5 seconds
-  HIDDEN_SIZE: 128
 DATASET:
-  NAME:'JAAD'
+  NAME: 'JAAD'
+  ROOT: 'data/JAAD'
   NUM_ACTION: 7
   NUM_INTENT: 2
   MIN_BBOX: [0, 0, 0, 0]
@@ -22,10 +22,10 @@ DATASET:
 DATALOADER:
   NUM_WORKERS: 16
   WEIGHTED: 'intent'
-  ITERATION_BASED: True
+  ITERATION_BASED: FALSE
 SOLVER:
   MAX_EPOCH: 100
-  BATCH_SIZE: 128
+  BATCH_SIZE: 32
   LR: 0.00001
   L2_WEIGHT: 0.001
 TEST:

@@ -1,5 +1,6 @@
-# Pedestrian Intent Action Detection
-This repo contains code of our paper "Coupling Intent and Action for Pedestrian Crossing Behavior Prediction." 
+# Pedestrian Intent Action Detection (for reproducing)
+This repo contains code of this paper "Coupling Intent and Action for Pedestrian Crossing Behavior Prediction." 
+**We mainly aim to check the potential of T-CNN and GRU so we modify the original model.**
 
 _Yu Yao, Ella Atkins, Matthew Johnson-Roberson, Ram Vasudevan and Xiaoxiao Du_
 
@@ -21,6 +22,13 @@ ln -s /mnt/workspace/users/PATH_TO_SAVE_CHECKPOINTS checkpoints (optional)
 ``` --> 
 
 2. Docker
+Prepare Docker: 
+- **Select CentOS7.9**  instead of Ubuntu 18.04
+- Follow official docs to install Docker: https://docs.docker.com/engine/install/centos/
+- Replace the source of Docker by following: https://app.yinxiang.com/fx/cf3b2ac4-de12-4a9b-a348-c00a604e4fa0
+- Then build the docker image by following next step
+- Perhaps you may run into the GPU-docker bounding issue, please refer to: https://app.yinxiang.com/fx/f96114dd-39dc-404d-bb2b-ee084ab0dc9f , and remember to restart the docker service after the modification.
+
 Build the docker image:
 ```
 cd pedestrian_intent_action_detection
@@ -45,7 +53,8 @@ python setup.py build develop
 ```
 
 # Data
-We have tested our method with [PIE](https://data.nvision2.eecs.yorku.ca/PIE_dataset/) and [JAAD](https://data.nvision2.eecs.yorku.ca/JAAD_dataset/) datasets. Users should follow their original instruction to download and prepare datasets. Users also need to get the extracted features from a pretrained VGG16 following the [PIEPredict repo](https://github.com/aras62/PIEPredict). As another option, users can download the vg166 features we extracted using PIEPredict code [here](https://drive.google.com/file/d/1xQAyvqE2Q4cxvjyWsCEJR09QjB7UYJIV/view?usp=sharing) and put it in `DATA_PATH/PIE_dataset/saved_output`.
+We have tested our method with [PIE](https://data.nvision2.eecs.yorku.ca/PIE_dataset/) and [JAAD](https://data.nvision2.eecs.yorku.ca/JAAD_dataset/) datasets. **Users should follow their original instruction to download and prepare datasets.** Users also need to get the extracted features from a pretrained VGG16 following the [PIEPredict repo](https://github.com/aras62/PIEPredict). As another option, users can download the vg166 features we extracted using PIEPredict code [here](https://drive.google.com/file/d/1xQAyvqE2Q4cxvjyWsCEJR09QjB7UYJIV/view?usp=sharing) and put it in `DATA_PATH/PIE_dataset/saved_output`.
+(**Pit: after we unzip this VGG16 features the space needed just explodes (more than)**)
 
 # Train
 Run following command to train model with original PIE data annotation:
@@ -68,7 +77,7 @@ python tools/train.py \
 Run following command to train model with SF-GRU style data annotation, change `--config_file` to `configs/JAAD_intent_action_relation.yaml` or `configs/PIE_intent_action_relation.yaml` to train on JAAD or PIE datasets. :
 ```
 python tools/train.py \
-    --config_file PATH_TO_CONFIG_FILES \
+    --config_file configs/JAAD_intent_action_relation.yaml \
     --gpu 0 \
     STYLE SF-GRU \
     MODEL.TASK action_intent_single \

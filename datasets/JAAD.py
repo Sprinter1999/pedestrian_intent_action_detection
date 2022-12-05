@@ -80,9 +80,9 @@ class JAADDataset(data.Dataset):
             self.beh_seq = imdb.balance_samples_count(self.beh_seq, label_type='intention_binary')
         data_type = intent_data_opts['encoder_input_type'] + intent_data_opts['decoder_input_type'] + intent_data_opts['output_type']
         
-        if self.cfg.DATASET.NUM_ACTION == 7:
-            new_action_seq = self.generate_new_actions(self.beh_seq)
-            self.beh_seq['action_seq'] = new_action_seq
+        # if self.cfg.DATASET.NUM_ACTION == 7:
+        #     new_action_seq = self.generate_new_actions(self.beh_seq)
+        #     self.beh_seq['action_seq'] = new_action_seq
 
         if self.cfg.MODEL.WITH_TRAFFIC:
             traffic_feature_path = os.path.join(self.root, 'relation_features', self.split+'.pkl')
@@ -122,10 +122,11 @@ class JAADDataset(data.Dataset):
         pids = self.data['obs_pid'][index]
         obs_bboxes = torch.FloatTensor(self.data['obs_bbox'][index])
         pred_bboxes = torch.FloatTensor(self.data['pred_bbox'][index])
-        if self.split == 'test':
-            cur_image_file = self.data['obs_image'][index]
-        else:
-            cur_image_file = self.data['obs_image'][index][-1]
+        # if self.split == 'test':
+        #     cur_image_file = self.data['obs_image'][index]
+        # else:
+        #     cur_image_file = self.data['obs_image'][index][-1]
+
         resolution = torch.FloatTensor(self.data['obs_resolution'][index])
         
         # normalize boxes
@@ -133,80 +134,28 @@ class JAADDataset(data.Dataset):
             obs_bboxes = self.convert_normalize_bboxes(obs_bboxes, resolution, normalize='zero-one', bbox_type='x1y1x2y2')
             pred_bboxes = self.convert_normalize_bboxes(pred_bboxes, resolution, normalize='zero-one', bbox_type='x1y1x2y2')
         
-        ret = {'obs_bboxes':obs_bboxes, 'pred_bboxes':pred_bboxes, 'cur_image_file':cur_image_file, 'resolution':resolution}
+        ret = {'obs_bboxes':obs_bboxes, 'pred_bboxes':pred_bboxes, 'resolution':resolution}
         
         # get target info
-        ret['image_files'] = self.data['obs_image'][index]
+        
         ret['pids'] = pids[0][0]
         # end = time.time()
-        if self.cfg.MODEL.TYPE == 'conv3d':
-            ret['img_patches'], ret['local_bboxes'] = self.load_image_patches(pids, self.data['obs_image'][index])
-        elif 'rnn' in self.cfg.MODEL.TYPE:
-            ret['local_bboxes'] = None
-            ret['img_patches'] = self.load_extracted_features(pids, self.data['obs_image'][index]) #ret['local_bboxes'] 
-        # else:
-        #     raise NameError(self.cfg.MODEL.TYPE)
+        # if self.cfg.MODEL.TYPE == 'conv3d':
+        #     ret['img_patches'], ret['local_bboxes'] = self.load_image_patches(pids, self.data['obs_image'][index])
+        if 'rnn' in self.cfg.MODEL.TYPE:
+            ret['local_bboxes'] = None 
+
             
         ret['obs_intent'] = torch.tensor(self.data['obs_intent'][index]).squeeze()
-        ret['obs_action'] = torch.tensor(self.data['obs_action'][index])
-        ret['pred_action'] = torch.tensor(self.data['pred_action'][index])
+
         ret['obs_crossing'] = torch.tensor(self.data['obs_crossing'][index])
 
-        
-        # get neighbor info
-        if self.cfg.MODEL.WITH_TRAFFIC:
-            if self.traffic_features is None:
-                ret.update(self.extract_traffic_features(index, obs_bboxes))
-            else:
-                ret['traffic_features'] = []
-                for pid, img_file in zip(pids, self.data['obs_image'][index]):
-                    key = pid[0] + '_' + img_file.split('/')[-1].split('.')[0] 
-                    ret['traffic_features'].append(torch.FloatTensor(self.traffic_features[key]))
-                ret['traffic_features'] = torch.cat(ret['traffic_features'], dim=0)
-        # get ego info
-        ret['obs_ego_motion'] = torch.FloatTensor(self.data['obs_ego_motion'][index]).unsqueeze(-1)
-        ret['pred_ego_motion'] = torch.FloatTensor(self.data['pred_ego_motion'][index])
         
         return ret
 
     def __len__(self):
         return len(self.data[list(self.data.keys())[0]])
 
-    def extract_traffic_features(self, index, ped_bboxes):
-        keys = ['neighbor_bboxes', 
-                'neighbor_classes', 
-                'neighbor_ids', 
-                'traffic_light',
-                'traffic_light_classes', 
-                'traffic_sign', 
-                'traffic_sign_classes',
-                'crosswalk', 
-                'crosswalk_classes',
-                ]
-    
-        ret = {k:[torch.FloatTensor([])] for k in keys}
-        ped_x_c, ped_y_c, ped_y_b = (ped_bboxes[:, 0]+ped_bboxes[:,2])/2, (ped_bboxes[:,1]+ped_bboxes[:,3])/2, ped_bboxes[:, 3]
-        
-        # 1.get pedestrian feature
-        if len(self.data['obs_traffic_bbox'][index]) > 0:
-            # neighbor feature is the bbox difference [x1_diff, y1_diff, x2_diff, y2_diff]
-            neighbor_bboxes = torch.FloatTensor(self.data['obs_traffic_bbox'][index])
-            neighbor_classes = torch.FloatTensor(self.data['obs_traffic_class'][index])
-            # NOTE: change the class to -1 if object does not exit on that frame.
-            neighbor_classes[neighbor_bboxes.max(dim=-1)[0] == 0] = -1 
-            
-            ret['neighbor_bboxes'] = [neighbor_bboxes - ped_bboxes.unsqueeze(0)]
-            ret['neighbor_classes'] = [neighbor_classes]
-            ret['neighbor_ids'] = [self.data['obs_traffic_obj_id'][index]]
-        # 2. get sign, light, crosswalk
-        ret['traffic_sign'] = torch.FloatTensor(self.data['obs_traffic_sign_class'][index])
-        ret['traffic_light'] = torch.FloatTensor(self.data['obs_traffic_light_class'][index]).unsqueeze(-1)
-        ret['crosswalk'] = torch.FloatTensor(self.data['obs_crosswalk_class'][index]).unsqueeze(-1)
-        ret['traffic_sign_classes'] = torch.ones((ret['traffic_sign'].shape[0]))
-        ret['traffic_light_classes'] = torch.ones((ret['traffic_light'].shape[0]))
-        ret['crosswalk_classes'] = torch.ones((ret['crosswalk'].shape[0]))
-
-        return ret 
 
     def get_weights(self):
         # NOTE: add weights to data samples based intent, action or intent+action classes
@@ -252,24 +201,6 @@ class JAADDataset(data.Dataset):
         else:
             raise ValueError("Unknown weight config: "+self.cfgDATALOADER.WEIGHTED)
 
-    def load_extracted_features(self, pids, img_files):
-        features = []
-        # local_bboxes = []
-        for t, img_path in enumerate(img_files):
-            pid = pids[t][0]
-            path_list = img_path.split('/')
-            sid, vid, img_id = path_list[-3], path_list[-2], path_list[-1].strip('.png')
-            
-            if self.cfg.DATASET.NAME == 'JAAD':
-               name = 'jaad'
-            elif self.cfg.DATASET.NAME == 'PIE':
-               name = 'pie' 
-            data_path = os.path.join(self.cfg.DATASET.ROOT, 'saved_output/data/', name, self.split, 'features_context_pad_resize/vgg16_none',
-                                     sid, vid, img_id + '_' + pid + '.pkl')
-            feature = pkl.load(open(data_path, 'rb'))
-            features.append(torch.tensor(feature).squeeze(0))
-            
-        return torch.stack(features, dim=0).permute(0,3,1,2)
         
     def convert_normalize_bboxes(self, all_bboxes, all_resolutions, normalize, bbox_type):
         '''input box type is x1y1x2y2 in original resolution'''
@@ -331,7 +262,7 @@ class JAADDataset(data.Dataset):
         :param data_type: The data types defined for encoder and decoder
         :return: A unified data representation as a list.
         """
-        # NOTE: add the downsample function in get_intent_tracks
+        # NOTE: add the downsample function in gett_intent_tracks
         if self.cfg.STYLE == 'PIE':
             tracks = self.get_intent_tracks(data, data_type, observe_length, pred_length, overlap)
         elif self.cfg.STYLE == 'SF-GRU':
@@ -355,31 +286,20 @@ class JAADDataset(data.Dataset):
                 obs_slices[k].extend([d[:len(d)-pred_length] for d in tracks[k]])
                 pred_slices[k].extend([d[len(d)-pred_length:] for d in tracks[k]])
         ret =  {
-                'obs_image': obs_slices['image'],
                 'obs_pid': obs_slices['pid'],
                 'obs_resolution': obs_slices['resolution'],
                 'obs_bbox': obs_slices['bbox'], # enc_input
                 'obs_crossing':obs_slices['crossing_seq'],
-                'obs_action':obs_slices['action_seq'],
+
                 'obs_intent':obs_slices['intention_binary'],
-                'pred_image': pred_slices['image'],
+
                 'pred_pid': pred_slices['pid'],
                 'pred_resolution': pred_slices['resolution'],
                 'pred_bbox': pred_slices['bbox'], #pred_target,
                 'pred_crossing':pred_slices['crossing_seq'],
-                'pred_action':pred_slices['action_seq'],
+
                 'pred_intent':pred_slices['intention_binary'],
-                'obs_traffic_bbox': obs_slices['traffic_bbox'], # for interaction learning purpose.
-                'obs_traffic_class': obs_slices['traffic_class'],
-                'obs_traffic_obj_id': obs_slices['traffic_obj_id'],
-                'pred_traffic_bbox': pred_slices['traffic_bbox'],
-                'pred_traffic_class': pred_slices['traffic_class'],
-                'pred_traffic_obj_id': pred_slices['traffic_obj_id'],
-                'obs_traffic_light_class':obs_slices['traffic_light_class'],
-                'obs_traffic_sign_class':obs_slices['traffic_sign_class'],
                 'obs_crosswalk_class':obs_slices['crosswalk_class'],
-                'obs_ego_motion': obs_slices['ego_motion'],
-                'pred_ego_motion': pred_slices['ego_motion'],
                 }
 
         return ret
@@ -431,45 +351,7 @@ class JAADDataset(data.Dataset):
             print("Max_num_traffics:{}, avg_num_traffics:{}".format(max(num_traffics), sum(num_traffics)/len(num_traffics)))
         return d
 
-    def map_to_new_action(self, _int, _act, _cro, crossed, prev_act=None):
-        if _int == 0 and _act == 0 and _cro == 1 and not crossed:
-            new_act = 0 # standing - have not crossed and will not cross
-        elif _int == 1 and _act == 0 and _cro == 1 and not crossed:
-            new_act = 1 # waiting - have not crossed yet and will cross
-        elif _int == 1 and _act == 1 and _cro == 1 and not crossed:
-            new_act = 2 # going towards - have not crossed yet and will cross
-        elif _cro in [0, 2]: #_act==1 and (_cro in [0, 2] or prev_act in [1, 3]):
-            new_act = 3 # crossing - crossing right now or previous action is wating or crossing
-        elif crossed and _cro == 1 and _act == 0:
-            new_act = 4 # finished crossing and standing
-        elif crossed and _cro == 1 and _act == 1:
-            new_act = 5 # finished crossing and walking
-        elif _act == 1:
-            new_act = 6 # other walking
-        else:
-            pdb.set_trace()
-        return new_act
 
-    def generate_new_actions(self, beh_seq):
-        # NOTE: Oct 8th, map the 2 actions to 7 actions
-        new_action_seq = []
-        for i, (bboxes, intent, action, cross) in enumerate(zip(beh_seq['bbox'],
-                                             beh_seq['intention_binary'],
-                                             beh_seq['action_seq'], 
-                                             beh_seq['crossing_seq'])):
-            intent = [tmp[0] for tmp in intent]
-            crossed = False
-            new_action_track = []
-            
-            for _int, _act, _cro, _box in zip(intent, action, cross, bboxes):
-                _cro += 1
-                if _cro in [0, 2]:
-                    crossed = True
-                # map to new action
-                new_action = self.map_to_new_action(_int, _act, _cro, crossed)
-                new_action_track.append(new_action)
-            new_action_seq.append(new_action_track)
-        return new_action_seq
         
     # Add downsample function
     def get_intent_tracks_new(self, data_raw, data_type, obs_length, pred_length, overlap, time_to_event, normalize=False):

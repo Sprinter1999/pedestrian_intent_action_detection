@@ -24,8 +24,9 @@ class ActionIntentionDetection(nn.Module):
         # if self.num_classes == 2 and self.cfg.MODEL.INTENT_LOSS == 'bce':
         #     self.num_classes = 1
 
-        self.bbox_embedding = nn.Sequential(nn.Linear(4, 256),
-                                            nn.ReLU())
+        # self.bbox_embedding = nn.Sequential(nn.Linear(4, 256),
+        #                                     nn.ReLU())
+
         # The classifier layer
         # self.classifier = nn.Linear(self.hidden_size, self.num_classes)
         # self.intent_model = IntentNet(cfg, x_visual_extractor=None)
@@ -39,9 +40,12 @@ class ActionIntentionDetection(nn.Module):
         self.conv4 = nn.Conv2d(256, 1, (4, 1))
         self.conv5 = nn.Conv2d(256, 1, (5, 1))
         self.conv6 = nn.Conv2d(256, 1, (6, 1))
-        self.conv7 = nn.Conv2d(256, 1, (8, 1))
-        self.conv8 = nn.Conv2d(256, 1, (10, 1))
+        self.conv8 = nn.Conv2d(256, 1, (8, 1))
+        self.conv10 = nn.Conv2d(256, 1, (10, 1))
         # self.conv9 = nn.Conv2d(1, 1, (13, self.word_embedding_dimension))
+
+        # relu不带参数，所以不需要定义多个
+        self.relu_ = nn.ReLU()
 
         self.Avg3_pool = nn.AvgPool2d((self.sentence_size-3+1, 1))
         self.Avg4_pool = nn.AvgPool2d((self.sentence_size-4+1, 1))
@@ -51,25 +55,9 @@ class ActionIntentionDetection(nn.Module):
         self.Avg10_pool = nn.AvgPool2d((self.sentence_size-10+1, 1))
         # self.Max14_pool = nn.AvgPool2d((self.sentence_size-13+1, 1))
         
-        self.linear1 = nn.Linear(6, self.num_classes*self.sentence_size)
-
-
-    def _init_visual_extractor(self):
-        if self.cfg.MODEL.INPUT_LAYER == 'avg_pool':
-            self.x_visual_extractor = nn.Sequential(nn.Dropout2d(0.4),
-                                                    nn.AvgPool2d(kernel_size=[7,7], stride=(1,1)),
-                                                    nn.Flatten(start_dim=1, end_dim=-1),
-                                                    nn.Linear(512, 128),
-                                                    nn.ReLU())
-        elif self.cfg.MODEL.INPUT_LAYER == 'conv2d':
-            self.x_visual_extractor = nn.Sequential(nn.Dropout2d(0.4),
-                                                    nn.Conv2d(in_channels=512, out_channels=64, kernel_size=[2,2]),
-                                                    nn.Flatten(start_dim=1, end_dim=-1),
-                                                    nn.ReLU())
-        # elif self.cfg.MODEL.INPUT_LAYER == 'attention':
-        #     self.x_visual_extractor = AdditiveAttention2D(self.cfg)
-        else:
-            raise NameError(self.cfg.MODEL.INPUT_LAYER)
+        # self.linear1 = nn.Linear(6, self.num_classes*self.sentence_size)
+        
+        self.lastconv1x1 = nn.Conv2d(in_channels=6, out_channels=30, kernel_size=[1,1])
 
     def _init_hidden_states(self, x, net_type='gru', task_exists=True):
         batch_size = x.shape[0]
@@ -81,15 +69,11 @@ class ActionIntentionDetection(nn.Module):
             raise ValueError(net_type)
 
     def forward(self,x_bbox=None,masks=None):
-
-        return self.forward_two_stream(x_bbox=x_bbox,masks=masks)
-
-    def forward_two_stream(self, x_bbox=None, masks=None):
         '''
         NOTE: Action and Intent net use separate encoder networks for training only !
               x_bbox: bounding boxes(batch_size, SEG_LEN, 4)
         '''
-        batch = x_bbox.shape[0]
+        # batch = x_bbox.shape[0]
         # # print(f"========/nbefore embedding {x_bbox.shape}")
         # x_bbox = self.bbox_embedding(x_bbox)
         # # print(f"after embedding {x_bbox.shape}")
@@ -107,23 +91,23 @@ class ActionIntentionDetection(nn.Module):
 
 
         # Convolution
-        x1 = F.relu(self.conv3(x_bbox))
+        x1 = self.relu_(self.conv3(x_bbox))
         print(f"========\nafter conv3 {x1.shape}")
-        x2 = F.relu(self.conv4(x_bbox))
+        x2 = self.relu_(self.conv4(x_bbox))
         print(f"after conv4 {x2.shape}")
-        x3 = F.relu(self.conv5(x_bbox))
+        x3 = self.relu_(self.conv5(x_bbox))
         print(f"after conv5 {x3.shape}")
-        x4 = F.relu(self.conv6(x_bbox))
+        x4 = self.relu_(self.conv6(x_bbox))
         print(f"after conv6 {x4.shape}")
-        x5 = F.relu(self.conv7(x_bbox))
-        print(f"after conv7 {x5.shape}")
-        x6 = F.relu(self.conv8(x_bbox))
-        print(f"after conv8 {x6.shape}")
+        x5 = self.relu_(self.conv8(x_bbox))
+        print(f"after conv8 {x5.shape}")
+        x6 = self.relu_(self.conv10(x_bbox))
+        print(f"after conv10 {x6.shape}")
 
 
         # Pooling
         x1 = self.Avg3_pool(x1)
-        print(f"after x1 maxpool {x1.shape}")
+        print(f"after x1 avgpool {x1.shape}")
         x2 = self.Avg4_pool(x2)
         print(f"after x2 avgpool {x2.shape}")
         x3 = self.Avg5_pool(x3)
@@ -138,20 +122,23 @@ class ActionIntentionDetection(nn.Module):
 
 
         # capture and concatenate the features
-        x = torch.cat((x1, x2, x3,x4,x5,x6), -1)
-        print(f"========\nafter concat {x.shape}")
+        x = torch.cat((x1, x2, x3,x4,x5,x6), 1)
+        print(f"========\nafter concat {x.shape} at dim-1")
 
-        x = x.view(batch, 1, -1)
-        print(f"after view {x.shape}")
+        x = self.lastconv1x1(x)
+        print(f"after lastconv1x1 {x.shape}")
 
-        # project the features to the labels
-        x = self.linear1(x)
-        print(f"after linear {x.shape}")
-        # print(f"before permute x size {x.shape}")
-        # x = x.permute(0, 2, 1)
-        # print(f"after permute x size {x.shape}")
-        x = torch.reshape(x,(x.shape[0],x.shape[2],x.shape[1]))
-        # x = x.view(-1, self.num_classes)
+        # x = x.view(batch, 1, -1)
+        # print(f"after view {x.shape}")
+
+        # # project the features to the labels
+        # x = self.linear1(x)
+        # print(f"after linear {x.shape}")
+        # # print(f"before permute x size {x.shape}")
+        # # x = x.permute(0, 2, 1)
+        # # print(f"after permute x size {x.shape}")
+        x = torch.reshape(x,(x.shape[0],x.shape[1],x.shape[2]))
+        # # x = x.view(-1, self.num_classes)
 
         print(f"after reshape x size {x.shape}")
 

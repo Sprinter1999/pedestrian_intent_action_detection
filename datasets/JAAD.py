@@ -134,6 +134,9 @@ class JAADDataset(data.Dataset):
             obs_bboxes = self.convert_normalize_bboxes(obs_bboxes, resolution, normalize='zero-one', bbox_type='x1y1x2y2')
             pred_bboxes = self.convert_normalize_bboxes(pred_bboxes, resolution, normalize='zero-one', bbox_type='x1y1x2y2')
         
+        # to transpose obs_bboxes without transpose operation and permute
+        obs_bboxes = obs_bboxes.transpose(0, 1)
+        obs_bboxes = obs_bboxes.unsqueeze(-1)
         ret = {'obs_bboxes':obs_bboxes, 'pred_bboxes':pred_bboxes, 'resolution':resolution}
         
         # get target info

@@ -57,13 +57,22 @@ def do_train(cfg,
             #     loss_act_pred_meter.add(loss_act_pred.item())
             #     loss_dict['loss_act_pred_train'] = loss_act_pred_meter.mean
             if int_det_scores is not None:
-                # print(f"trainer {int_det_scores.size()}")
+                # print(f"trainer scores: {int_det_scores.size()} target: {target_intent.size()}")
                 loss_intent = loss_func['int_det'](int_det_scores, target_intent)
                 # if act_det_scores is not None and hasattr(model, 'param_scheduler'):
                 #     loss += model.param_scheduler.intent_weight * loss_intent
                 #     loss_dict['intent_weight'] = model.param_scheduler.intent_weight
                 # else:
                 loss += loss_intent
+                intent_pred = torch.sigmoid(int_det_scores)
+                intent_pred = torch.reshape(intent_pred, (intent_pred.shape[0],intent_pred.shape[1]))
+
+                # (intent_pred.ge(0.5) == target_intent)
+                acc = torch.mean(intent_pred.ge(0.5).eq(target_intent).float())
+
+                loss_act_det_meter.add(acc.item())
+                loss_dict['acc'] = loss_act_det_meter.mean
+
                 loss_intent_meter.add(loss_intent.item())
                 loss_dict['loss_int_det_train'] = loss_intent_meter.mean
         
@@ -139,12 +148,14 @@ def do_val(cfg, epoch, model, dataloader, device, logger=None, iteration_based=F
     loss_act_det_meter = AverageValueMeter()
     loss_act_pred_meter = AverageValueMeter()
     loss_intent_meter = AverageValueMeter()
+    val_acc_meter = AverageValueMeter()
 
     loss_act, loss_intent = [], []
     loss_func = {}
     # loss_func['act_det'] = binary_cross_entropy_loss if cfg.MODEL.ACTION_LOSS == 'bce' else cross_entropy_loss
     loss_func['int_det'] = binary_cross_entropy_loss if cfg.MODEL.INTENT_LOSS == 'bce' else cross_entropy_loss
     # loss_func['act_pred'] = trn_loss if 'trn' in cfg.MODEL.ACTION_NET else None
+    loss_dict = {}
     with torch.set_grad_enabled(False):
         for iters, batch in enumerate(tqdm(dataloader), start=1):
     
@@ -198,13 +209,19 @@ def do_val(cfg, epoch, model, dataloader, device, logger=None, iteration_based=F
             #         loss_act_pred_meter.add(cross_entropy_loss(act_pred_scores[:, -1].reshape(-1, act_pred_scores.shape[-1]), 
             #                                                    target_future_action.view(-1)).item())
 
+            intent_pred = torch.sigmoid(int_det_scores)
+            intent_pred = torch.reshape(intent_pred, (intent_pred.shape[0],intent_pred.shape[1]))
+            acc = torch.mean(intent_pred.ge(0.5).eq(target_intent).float())
+            loss_act_det_meter.add(acc.item())
+            loss_dict['acc'] = loss_act_det_meter.mean
+
             if int_det_scores is not None:
                 if cfg.STYLE == 'PIE':
                     loss_intent_meter.add(loss_func['int_det'](int_det_scores, target_intent).item())
                 elif cfg.STYLE == 'SF-GRU':
                     loss_intent_meter.add(loss_func['int_det'](int_det_scores[:, -1:], target_intent[:, -1:]).item())                
 
-    loss_dict = {}
+    
 
     if 'intent' in cfg.MODEL.TASK:
         loss_dict['loss_intent_val'] = loss_intent_meter.mean

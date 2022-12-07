@@ -21,13 +21,12 @@ class IntentNet(nn.Module):
 
         if 'gru' in self.cfg.MODEL.INTENT_NET:
             # use avg pooling/conv2d to get 1d vector then use regular GRU
-            if self.cfg.MODEL.INPUT_LAYER == 'conv2d':
-                enc_input_size = 6*6*64 + 16 + self.hidden_size if 'action' in self.cfg.MODEL.TASK else 6*6*64 + 16
-            elif self.cfg.MODEL.INPUT_LAYER == 'attention':
-                enc_input_size = 7*7*64 + 16 + self.hidden_size if 'action' in self.cfg.MODEL.TASK else 7*7*64 + 16
-            else:
-                enc_input_size = 128 + 16 + self.hidden_size if 'action' in self.cfg.MODEL.TASK else 128 + 16 
-
+            # if self.cfg.MODEL.INPUT_LAYER == 'conv2d':
+            #     enc_input_size = 6*6*64 + 16 + self.hidden_size if 'action' in self.cfg.MODEL.TASK else 6*6*64 + 16
+            # elif self.cfg.MODEL.INPUT_LAYER == 'attention':
+            #     enc_input_size = 7*7*64 + 16 + self.hidden_size if 'action' in self.cfg.MODEL.TASK else 7*7*64 + 16
+            # else:
+            enc_input_size = 256
             
             self.enc_cell = nn.GRUCell(enc_input_size, self.hidden_size)
         else:

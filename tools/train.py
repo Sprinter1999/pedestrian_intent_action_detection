@@ -88,8 +88,9 @@ test_dataloader = make_dataloader(cfg, split='test')
 
 # optimizer
 optimizer = optim.RMSprop(model.parameters(), lr=cfg.SOLVER.LR, weight_decay=cfg.SOLVER.L2_WEIGHT, alpha=0.9, eps=1e-7)# the weight of L2 regularizer is 0.001
+
 if cfg.SOLVER.SCHEDULER == 'exp':
-    # NOTE: June 10, think about using Trajectron++ shceduler
+    # NOTE: June 10, think about using Trajectron++ scheduler
     lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=cfg.SOLVER.GAMMA)
 elif cfg.SOLVER.SCHEDULER == 'plateau':
     # Same to original PIE implementation
@@ -121,6 +122,7 @@ if cfg.SOLVER.INTENT_WEIGHT_MAX != -1:
                                             'center_step': cfg.SOLVER.CENTER_STEP,#800.0,
                                             'steps_lo_to_hi': cfg.SOLVER.STEPS_LO_TO_HI, #800.0 / 4.
                                         })
+
 torch.autograd.set_detect_anomaly(True)
 # NOTE: try different way to sample data for training.
 if cfg.DATALOADER.ITERATION_BASED:
@@ -134,7 +136,7 @@ else:
     loss_intent_meter = AverageValueMeter()
 
     for epoch in range(cfg.SOLVER.MAX_EPOCH):
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>called")
+        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>called")
         do_train(cfg, epoch, model, optimizer, train_dataloader, cfg.DEVICE, loss_act_det_meter, loss_act_pred_meter, loss_intent_meter, logger=logger, lr_scheduler=lr_scheduler)
         loss_val = do_val(cfg, epoch, model, val_dataloader, cfg.DEVICE, logger=logger)
         print(f"*************loss_val {loss_val}**************")

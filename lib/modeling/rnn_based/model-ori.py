@@ -19,7 +19,7 @@ class ActionIntentionDetection(nn.Module):
         self.parameter_scheduler = parameter_scheduler
         self.hidden_size = self.cfg.MODEL.HIDDEN_SIZE
 
-        self.bbox_embedding = nn.Sequential(nn.Linear(4, 272),
+        self.bbox_embedding = nn.Sequential(nn.Linear(4, 256),
                                             nn.ReLU())
         # if self.cfg.MODEL.WITH_TRAFFIC:
         #     self.relation_model = RelationNet(cfg)
@@ -71,6 +71,7 @@ class ActionIntentionDetection(nn.Module):
     def forward(self,
                 x_bbox=None,
                 masks=None):
+        print(f"HIDDEN size {self.cfg.MODEL.HIDDEN_SIZE}")
 
         return self.forward_two_stream(x_bbox=x_bbox, masks=masks)
 

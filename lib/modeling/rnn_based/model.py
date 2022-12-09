@@ -46,7 +46,7 @@ class ActionIntentionDetection(nn.Module):
         # relu不带参数，所以不需要定义多个
         self.relu_ = nn.ReLU()
 
-        self.Avg3_pool = nn.MaxPool2d((self.sentence_size-3+1, 1))
+        self.Max3_pool = nn.MaxPool2d((self.sentence_size-3+1, 1))
         self.Avg4_pool = nn.AvgPool2d((self.sentence_size-4+1, 1))
         self.Avg5_pool = nn.AvgPool2d((self.sentence_size-5+1, 1))
         self.Avg6_pool = nn.AvgPool2d((self.sentence_size-6+1, 1))
@@ -123,7 +123,7 @@ class ActionIntentionDetection(nn.Module):
 
 
         # Pooling
-        x1 = self.Avg3_pool(x1)
+        x1 = self.Max3_pool(x1)
         # print(f"after x1 avgpool {x1.shape}")
         x2 = self.Avg4_pool(x2)
         # print(f"after x2 avgpool {x2.shape}")
